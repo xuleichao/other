@@ -1,4 +1,4 @@
-This is some cdes for translating the texts of wechat articles to mp3.
+This is some codes for translating the texts of wechat articles to mp3.
 
 1.  I used the method of spider of python to get the texts of wechat article, the url has been given.
 2. Using the API of baidu voice, translate the texts into mp3.
