@@ -83,6 +83,21 @@ class CorpusUtil:
                     i.append(self.word2int_dct['EOS'])
                 new_lst.append(i)
         return new_lst
+
+    def gnrt_corpus_data(self):
+        self.jieba_utils()
+        self.word_num_transform(self.eng, 'eng')
+        # X 数据
+        self.eng_X = self.onehot_util(self.eng, 15)
+
+        self.word_num_transform(self.chi, 'chi')
+        # y 数据
+        self.chi_y = self.onehot_util(self.chi, 10)
+
+    
+    def batch_data(self, batch_size=10):
+        # 生成batch 数据
+        pass
     
 if __name__ == '__main__':
     A = CorpusUtil()
