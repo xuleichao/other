@@ -59,13 +59,14 @@ class Model:
         encoder_final_c = encoder_final_state[0][0]
         return encoder_final_c
 
-    def build_decoder(self):
+    def build_decoder(self, decoder_inputs, encoder_final_state):
         decoder_lstm_inputs = tf.nn.embedding_lookup(self.embedding_layer, decoder_inputs)
         self.decoder_layer = build_lstm(lstm_hidden_num, 0.9, 1)
 
         decoder_lstm_outputs, decoder_final_state = tf.nn.dynamic_rnn(self.decoder_layer, decoder_lstm_inputs,\
                                                                       initial_state=encoder_final_state,\
                                                                       scope='plain_decoder')
+        return decoder_lstm_outputs
         
     def build_loss(self, decoder_lstm_outputs):
         decoder_logits_argmax = tf.argmax(decoder_lstm_outputs, 2)
@@ -73,8 +74,8 @@ class Model:
         cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(
             labels=tf.one_hot(targets, depth=fully_connect, dtype=tf.float32),
             logits=decoder_logits)
-        loss = tf.reduce_mean(cross_entropy)
-        self.train_op = tf.train_AdamOptimizer().minimize(loss)
+        self.loss = tf.reduce_mean(cross_entropy)
+        self.train_op = tf.train_AdamOptimizer().minimize(self.loss)
 
     def inference_layer(inputs_infer):
         """
@@ -91,18 +92,17 @@ class Model:
         inputs_encode = tf.nn.embedding_lookup(self.embedding_layer, inputs_infer)
         encoder_lstm_outputs, encoder_final_state = tf.nn.dynamic_rnn(self.encoder_layer, inputs_encode, dtype=tf.float32)
         # 推断初始输入
-        inference_initial_inputs = tf.nn.embedding_lookup(self.embedding_layer, [[dictionary[0]['bos']]])
+        inference_initial_inputs = tf.nn.embedding_lookup(self.embedding_layer, [[dictionary[0]['BOS']]])
         string = ''
         while not stop_condition:
             # 预测字符
             #判断是否终止
             #需要向量转字符
-            print(11)
             inference_outputs, infenrence_state = tf.nn.dynamic_rnn(self.decoder_layer, inference_initial_inputs, \
                                                                     initial_state=encoder_final_state,scope="inference_decoder")
             outputs_str = dictionary[1][np.argmax(inference_outputs)]
             string += outputs_str
-            if outputs_str == 'eos' or count > 20:
+            if outputs_str == 'EOS' or count > 20:
                 stop_condition = True
             else:
                 inference_initial_inputs = inference_outputs
@@ -111,8 +111,22 @@ class Model:
             print(string)
         return string
 
-    def model_train(self):
-        pass
+    def model_train(self, encoder_inputs, decoder_target, decoder_input, enpoches=100):
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+        saver = tf.train.Saver()
+        count = 0
+        for ep in range(epochs):
+            feed_dict = {inputs: encoder_inputs, decoder_inputs: decoder_input,
+                         targets: np.array(decoder_target),
+                         }
+            _, a = sess.run([train_op, loss], feed_dict)
+            predict = sess.run(decoder_logits_argmax, feed_dict)
+            print(_, a)
+            saver.save(sess, "model/my-model", global_step=ep)
+            count += 1
+            a = predict
+            #print(inference_layer([[1,2,3,4,5]]))
 
     def model_test(self):
         pass
