@@ -1,5 +1,4 @@
 '''
-
 by xlc time:2018-08-28 08:27:06
 '''
 import sys
@@ -171,5 +170,3 @@ def dataflow_loads(language='eng'):
     
 if __name__ == '__main__':
     X, decoder_target, decoder_input = dataflow_loads()
-    
-        

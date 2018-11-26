@@ -1,5 +1,4 @@
 '''
-
 by xlc time:2018-08-23 09:50:18
 '''
 import sys
@@ -62,20 +61,20 @@ if __name__ == '__main__':
     data = pd.read_csv('./cmn-eng/cmn.txt', sep='\t', names=['eng', 'chi'])
     #最大英文单词数 32
     #最大中文字符数 44
-    lstm_hidden_num = 100 # lstm 隐层维度
+    lstm_hidden_num = 130 # lstm 隐层维度
     words_class = 120 # 单词的种类数
     input_max_length = 15 # 最大输入长度
     decoder_input_max_length = 19
     batch_size = 10 #
-    fully_connect = 32
+    fully_connect = 130
     
     # 建立input
     inputs = tf.placeholder(tf.int32, shape=(None, input_max_length), name='inputs')
     decoder_inputs = tf.placeholder(tf.int32, shape=(None, None), name='decoder_inputs')
     targets = tf.placeholder(tf.int32, shape=(None, decoder_input_max_length), name='targets')
     # 词嵌入层
-    embedding_layer = build_embedding(words_class, 100)
-    embedding_layer_chi = build_embedding(200, 100, name='chi')# 解码词语嵌入
+    embedding_layer = build_embedding(words_class, 130)
+    embedding_layer_chi = build_embedding(200, 130, name='chi')# 解码词语嵌入
     # lstm 输入
     lstm_inputs = tf.nn.embedding_lookup(embedding_layer, inputs)
     # 编码层
@@ -89,24 +88,23 @@ if __name__ == '__main__':
     encoder_final_c = encoder_final_state[0][0] # 编码层最后的状态 c
     # 解码层构建-for training
     
-    decoder_lstm_inputs = tf.nn.embedding_lookup(embedding_layer_chi, decoder_inputs)
-    decoder_layer = build_lstm(lstm_hidden_num, 0.9, 1)
+    #decoder_lstm_inputs = tf.nn.embedding_lookup(embedding_layer_chi, decoder_inputs)
+    #decoder_layer = build_lstm(lstm_hidden_num, 0.9, 1)
     #decoder_layer = tf.contrib.rnn.LSTMCell(100)
-    decoder_lstm_outputs, decoder_final_state = tf.nn.dynamic_rnn(decoder_layer, decoder_lstm_inputs, initial_state=\
-                                                                  encoder_final_state, scope="plain_decoder")# 坑啊，两个dynamic 要用scope进行区分
+    #decoder_lstm_outputs, decoder_final_state = tf.nn.dynamic_rnn(decoder_layer, decoder_lstm_inputs, initial_state=\
+    #                                                              encoder_final_state, scope="plain_decoder")# 坑啊，两个dynamic 要用scope进行区分
+
+    #decoder_lstm_outputs, decoder_final_state = inference_layer(decoder_inputs, encoder_final_state, is_inference=False)
     # 构建损失函数
-    decoder_logits_argmax = tf.argmax(decoder_lstm_outputs, 2)
+    
     #decoder_logits = tf.to_float(decoder_logits, name='ToFloat32')
-    decoder_logits = tf.contrib.layers.linear(decoder_lstm_outputs, fully_connect)
-    cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(
-        labels=tf.one_hot(targets, depth=fully_connect, dtype=tf.float32),
-        logits=decoder_logits
-    )
-    loss = tf.reduce_mean(cross_entropy)
-    train_op = tf.train.AdamOptimizer().minimize(loss)
+    
     # 解码层构建-for inference
-    def inference_layer(inputs_infer):
+    def inference_layer(inputs_infer, initial_state=None, is_inference=True):
         """
+        ## 刚发现编码层和推理层的关系，所以决定修改这块，改成编码层和推理层公用
+        - 编码层直接可以进行编码，经过一次dynamic_rnn 就可以
+        - 如果是推理层，就需要进行将推理结果拼接起来返回，所以这就是concat 的作用吗？
         推理层构建
         - 结束条件
           1. 达到最大字符数
@@ -116,7 +114,15 @@ if __name__ == '__main__':
         global embeddinng_layer, embedding_layer_chi
         global encoder_layer
         global decoder_layer
+        global lstm_hidden_num
         #global encoder_final_state
+        if is_inference == False:
+            decoder_lstm_inputs = tf.nn.embedding_lookup(embedding_layer_chi, inputs_infer)
+            decoder_layer = build_lstm(lstm_hidden_num, 0.9, 1)
+            #decoder_layer = tf.contrib.rnn.LSTMCell(100)
+            decoder_lstm_outputs, decoder_final_state = tf.nn.dynamic_rnn(decoder_layer, decoder_lstm_inputs, initial_state=\
+                                                                          initial_state, scope="plain_decoder")# 坑啊，两个dynamic 要用scope进行区分
+            return decoder_lstm_outputs, decoder_final_state
         stop_condition = False
         count = 0
         # 编码
@@ -132,8 +138,8 @@ if __name__ == '__main__':
             #print(11)
             inference_outputs, infenrence_state = tf.nn.dynamic_rnn(decoder_layer, inference_initial_inputs, \
                                                                     initial_state=encoder_final_state,scope="plain_decoder")
-            print(np.argmax(inference_outputs))
-            outputs_str = dictionary_chi[1][np.argmax(inference_outputs)]
+            a, b = sess.run([inference_outputs, tf.argmax(inference_outputs, 2)])
+            outputs_str = dictionary_chi[1][b[0][0]]
             string += outputs_str
             print(outputs_str, count)
             if outputs_str == 'eos' or count > 20:
@@ -145,10 +151,20 @@ if __name__ == '__main__':
             print(string)
         return string
 
+    decoder_lstm_outputs, decoder_final_state = inference_layer(decoder_inputs, encoder_final_state, is_inference=False)
+    decoder_logits = tf.contrib.layers.linear(decoder_lstm_outputs, fully_connect)
+    decoder_logits_argmax = tf.argmax(decoder_logits, 2)
+    labels_target = tf.one_hot(targets, depth=fully_connect, dtype=tf.float32)
+    cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(
+        labels=labels_target,
+        logits=decoder_lstm_outputs
+    )
+    loss = tf.reduce_mean(cross_entropy)
+    train_op = tf.train.AdamOptimizer().minimize(loss)
 
     # begin train
     # 训练参数定义
-    epochs = 100 # 训练次数
+    epochs = 2000 # 训练次数
     encoder_inputs, decoder_target, decoder_input = dataflow_loads()
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
@@ -158,14 +174,12 @@ if __name__ == '__main__':
         feed_dict = {inputs: encoder_inputs, decoder_inputs: decoder_input,
                      targets: np.array(decoder_target),
                      }
-        _, a, b = sess.run([train_op, loss, decoder_logits], feed_dict)
+        _, a, b, c = sess.run([train_op, loss, decoder_logits, labels_target], feed_dict)
         predict = sess.run(decoder_logits_argmax, feed_dict)
-        print(_, a, predict)
-        
+        accuracy = 1
+        #print(_, a, b, c, predict)
+        print(predict)
         print(count)
         count += 1
     a = predict
     print(inference_layer([encoder_inputs[0]]))
-        
-    
-            
