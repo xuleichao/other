@@ -75,9 +75,9 @@ def data_utils(corpus_num=100):
     #eng_tokenize_lst = _del_space(eng_tokenize_lst)
     return eng_tokenize_lst, chi_tokenize_lst
         
-def get_data(language='eng'):
+def get_data(language='eng', num=100):
     data_path = './cmn-eng/cmn.txt'
-    data = pd.read_csv(data_path, sep='\t', names=['eng', 'chi'])[:100]
+    data = pd.read_csv(data_path, sep='\t', names=['eng', 'chi'])[:num]
     tokenize_lst = []
     for i in range(data.shape[0]):
         eng_data = data.iloc[i][language]
@@ -109,10 +109,10 @@ def sents2onehot(sents_lst, dictionary):
         new_sents_lst.append(vec)
     return new_sents_lst
 
-def gnrt_learn_data(language='eng'):
-    X, y = data_utils() #
-    str2onehot_dict, _ = get_data(language)
-    str2onehot_dict_chi, _ = get_data('chi')
+def gnrt_learn_data(language='eng', num_of_data=100):
+    X, y = data_utils(num_of_data) #
+    str2onehot_dict, _ = get_data(language, num_of_data)
+    str2onehot_dict_chi, _ = get_data('chi', num_of_data)
     #print(X)
     #print(str2onehot_dict)
     X = [sents2onehot(i, str2onehot_dict) for i in X]
@@ -156,12 +156,22 @@ def target_utils(target, max_padding, dictionary, is_target=False):
         return decoder_input
     return decoder_target, decoder_input
 
-def batch_data(data_tuple, batch_size):
+def batch_data(data_lst, batch_size):
     # 将 dataflow_loads 的返回值变为batch
-    batch_rslt = []
+    # 数据量的大小
+    max_length = len(data_lst[0])
+    batch_count = max_length // batch_size
+    for i in range(batch_count):
+        start = i * batch_size
+        end = start + batch_size
+        if end >=  max_length:
+            end = max_length
+        batch_data1 = [data_lst[0][start: end], data_lst[1][start: end],\
+                      data_lst[2][start: end]]
+        yield batch_data1
 
-def dataflow_loads(language='eng'):
-    X, y, dct, dct_chi = gnrt_learn_data(language)
+def dataflow_loads(language='eng', num_of_data=100):
+    X, y, dct, dct_chi = gnrt_learn_data(language, num_of_data)
     y1 =copy.deepcopy(y)
     X = data_padding(X, 15, dct)
     decoder_target = target_utils(y, 20, dct_chi, True)
