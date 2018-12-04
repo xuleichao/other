@@ -8,7 +8,7 @@ main_path = os.path.dirname(os.path.abspath(__file__)).replace('\\', '/')
 main_path = '/'.join(main_path.split('/')[:-1])
 import pandas as pd
 import numpy as np
-import jieba, copy
+import jieba, copy, json
 from sklearn.feature_extraction.text import CountVectorizer
 
 class CorpusUtils:
@@ -109,10 +109,13 @@ def sents2onehot(sents_lst, dictionary):
         new_sents_lst.append(vec)
     return new_sents_lst
 
-def gnrt_learn_data(language='eng', num_of_data=100):
+def gnrt_learn_data(language='eng', num_of_data=100, if_file_dict=False):
     X, y = data_utils(num_of_data) #
     str2onehot_dict, _ = get_data(language, num_of_data)
     str2onehot_dict_chi, _ = get_data('chi', num_of_data)
+    if if_file_dict == True:
+        str2onehot_dict = json.loads(open('./dictionary_eng1', 'r', encoding='utf-8').read())[0]
+        str2onehot_dict_chi = json.loads(open('./dictionary_chi1', 'r', encoding='utf-8').read())[0]
     #print(X)
     #print(str2onehot_dict)
     X = [sents2onehot(i, str2onehot_dict) for i in X]
@@ -170,8 +173,8 @@ def batch_data(data_lst, batch_size):
                       data_lst[2][start: end]]
         yield batch_data1
 
-def dataflow_loads(language='eng', num_of_data=100):
-    X, y, dct, dct_chi = gnrt_learn_data(language, num_of_data)
+def dataflow_loads(language='eng', num_of_data=100, if_file_dict=False):
+    X, y, dct, dct_chi = gnrt_learn_data(language, num_of_data, if_file_dict)
     y1 =copy.deepcopy(y)
     X = data_padding(X, 15, dct)
     decoder_target = target_utils(y, 20, dct_chi, True)
@@ -179,4 +182,4 @@ def dataflow_loads(language='eng', num_of_data=100):
     return X, decoder_target, decoder_input
     
 if __name__ == '__main__':
-    X, decoder_target, decoder_input = dataflow_loads()
+    X, decoder_target, decoder_input = dataflow_loads(if_file_dict=True)

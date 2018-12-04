@@ -21,10 +21,18 @@ def json_write(data, file_name):
         f.write(json.dumps(data, ensure_ascii=False))
 
 # 写入字典
-json_write(dictionary_eng, 'dictionary_eng')
-json_write(dictionary_chi, 'dictionary_chi')
+#json_write(dictionary_eng, 'dictionary_eng')
+#json_write(dictionary_chi, 'dictionary_chi')
+dictionary_eng = json.loads(open('dictionary_eng1', 'r', encoding='utf-8').read())
+#dictionary_eng_1 = {j:i for i,j in dictionary_eng_0.items()}
+dictionary_chi = json.loads(open('dictionary_chi1', 'r', encoding='utf-8').read())
+int_num = dictionary_chi[1]
+int_num = {int(i):j for i,j in int_num.items()}
+dictionary_chi[1] = int_num
+#dictionary_eng_1 = {j:i for i,j in dictionary_chi_0.items()}
+#dictionary_eng = [dictionary_eng_0, dictionary_eng_1]
+#dictionary_chi = [dictionary_chi_0, dictionary_chi_1]
 
-    
 def build_embedding(units_num, embedding_length, name='embedding'):
     # embedding 层
     embedding = tf.get_variable(name, [units_num, embedding_length])
@@ -139,6 +147,8 @@ if __name__ == '__main__':
         # 编码
         inputs_encode = tf.nn.embedding_lookup(embedding_layer, inputs_infer)
         encoder_lstm_outputs, encoder_final_state = tf.nn.dynamic_rnn(encoder_layer, inputs_encode, dtype=tf.float32)
+        c = sess.run(encoder_final_state)[0][0]
+        #print(c)
         # 推断初始输入
         inference_initial_inputs = tf.nn.embedding_lookup(embedding_layer_chi, [[dictionary_chi[0]['bos']]])
         string = ''
@@ -162,13 +172,14 @@ if __name__ == '__main__':
                 encoder_final_state = infenrence_state
             count += 1
             print(string)
-        return string
+        return string, c
 
     def test_model(inputs):
         saver = tf.train.Saver()
         model_file = tf.train.latest_checkpoint('model/')
         saver.restore(sess, model_file)
-        inference_layer(inputs)
+        a, b = inference_layer(inputs)
+        return a, b
     
     decoder_lstm_outputs, decoder_final_state = inference_layer(decoder_inputs, encoder_final_state, is_inference=False)
     #infer_outputs, _ = inference_layer(decoder_inputs, None, is_inference=True)
@@ -188,13 +199,14 @@ if __name__ == '__main__':
     # begin train
     # 训练参数定义
     epochs = 1000 # 训练次数
-    encoder_inputs, decoder_target, decoder_input = dataflow_loads(num_of_data=100)
+    encoder_inputs, decoder_target, decoder_input = dataflow_loads(num_of_data=100, if_file_dict=True)
     # 生成batch 数据
     batch_size = 100
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
     saver = tf.train.Saver()
     count = 0
+    ddd
     for ep in range(epochs):
         data_with_batch = batch_data([encoder_inputs, decoder_target, decoder_input], batch_size)
         # 获得batch 次数，防止迭代器报错
