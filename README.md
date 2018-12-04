@@ -4,4 +4,4 @@
 3. 我是新建了一个仓库，不知道还用原来的仓库行不行。
 
 ---
-!(句向量)[https://github.com/xuleichao/other/blob/master/cmn-eng/Figure_1.png]
+![句向量](https://github.com/xuleichao/other/blob/master/cmn-eng/Figure_1.png)
